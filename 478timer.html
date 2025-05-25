@@ -3,116 +3,76 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>4-7-8 Breathing Timer</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-      background-color: #f0f0f0;
-      color: #333;
-    }
-    #phase {
-      font-size: 2em;
-      margin-bottom: 20px;
-    }
-    #timer {
-      font-size: 3em;
-      margin-bottom: 20px;
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 1.2em;
-      cursor: pointer;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 5px;
-    }
-    button:hover {
-      background-color: #45a049;
-    }
-  </style>
+  <title>4-7-8 Breathing Timer with Haptic Feedback</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/use-haptic@1.1.11/dist/index.umd.js"></script>
 </head>
-<body>
-  <div id="phase">Press Start</div>
-  <div id="timer">0</div>
-  <button id="startStop">Start</button>
+<body class="bg-blue-100 flex flex-col items-center justify-center min-h-screen text-gray-800">
+  <div id="root"></div>
 
-  <script>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const { useHaptic } = window['use-haptic'];
+
     const phases = [
-      { name: 'Inhale', duration: 4, vibration: [200, 100, 200] }, // Vibrate pattern: 200ms on, 100ms off, 200ms on
-      { name: 'Hold', duration: 7, vibration: [200] },
-      { name: 'Exhale', duration: 8, vibration: [400] }
+      { name: 'Inhale', duration: 4, haptic: 'light' }, // Short haptic "bump" for Inhale
+      { name: 'Hold', duration: 7, haptic: 'light' },
+      { name: 'Exhale', duration: 8, haptic: 'light' }
     ];
-    let currentPhase = 0;
-    let timeLeft = 0;
-    let isRunning = false;
-    let intervalId = null;
 
-    const phaseDisplay = document.getElementById('phase');
-    const timerDisplay = document.getElementById('timer');
-    const startStopButton = document.getElementById('startStop');
+    function BreathingTimer() {
+      const [currentPhase, setCurrentPhase] = useState(0);
+      const [timeLeft, setTimeLeft] = useState(phases[0].duration);
+      const [isRunning, setIsRunning] = useState(false);
+      const { triggerHaptic } = useHaptic();
 
-    function updateDisplay() {
-      phaseDisplay.textContent = phases[currentPhase].name;
-      timerDisplay.textContent = timeLeft;
+      useEffect(() => {
+        let intervalId = null;
+        if (isRunning) {
+          intervalId = setInterval(() => {
+            setTimeLeft((prev) => {
+              if (prev <= 1) {
+                const nextPhase = (currentPhase + 1) % phases.length;
+                setCurrentPhase(nextPhase);
+                triggerHaptic(phases[nextPhase].haptic); // Trigger haptic feedback
+                return phases[nextPhase].duration;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+        }
+        return () => clearInterval(intervalId);
+      }, [isRunning, currentPhase]);
+
+      const handleStartStop = () => {
+        if (isRunning) {
+          setIsRunning(false);
+          setCurrentPhase(0);
+          setTimeLeft(phases[0].duration);
+        } else {
+          setIsRunning(true);
+          triggerHaptic(phases[currentPhase].haptic); // Initial haptic feedback
+        }
+      };
+
+      return (
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-4">{phases[currentPhase].name}</h1>
+          <div className="text-5xl mb-6">{timeLeft}</div>
+          <button
+            onClick={handleStartStop}
+            className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600"
+          >
+            {isRunning ? 'Stop' : 'Start'}
+          </button>
+        </div>
+      );
     }
 
-    function vibrate(pattern) {
-      if (navigator.vibrate) {
-        navigator.vibrate(pattern);
-      } else {
-        console.log('Vibration API not supported');
-      }
-    }
-
-    function startTimer() {
-      if (!isRunning) {
-        isRunning = true;
-        startStopButton.textContent = 'Stop';
-        timeLeft = phases[currentPhase].duration;
-        updateDisplay();
-        vibrate(phases[currentPhase].vibration);
-
-        intervalId = setInterval(() => {
-          timeLeft--;
-          updateDisplay();
-          if (timeLeft <= 0) {
-            currentPhase = (currentPhase + 1) % phases.length;
-            timeLeft = phases[currentPhase].duration;
-            vibrate(phases[currentPhase].vibration);
-            updateDisplay();
-          }
-        }, 1000);
-      }
-    }
-
-    function stopTimer() {
-      if (isRunning) {
-        isRunning = false;
-        startStopButton.textContent = 'Start';
-        clearInterval(intervalId);
-        currentPhase = 0;
-        timeLeft = phases[currentPhase].duration;
-        updateDisplay();
-      }
-    }
-
-    startStopButton.addEventListener('click', () => {
-      if (isRunning) {
-        stopTimer();
-      } else {
-        startTimer();
-      }
-    });
-
-    // Initialize display
-    updateDisplay();
+    ReactDOM.render(<BreathingTimer />, document.getElementById('root'));
   </script>
 </body>
 </html>
