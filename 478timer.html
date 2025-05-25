@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mindful Coloring Canvas</title>
+  <title>4-7-8 Breathing Timer</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -13,29 +13,25 @@
       justify-content: center;
       height: 100vh;
       margin: 0;
-      background-color: #e6f0fa;
+      background-color: #f0f0f0;
       color: #333;
     }
-    canvas {
-      border: 2px solid #4CAF50;
-      background-color: white;
-      max-width: 90%;
-      max-height: 60vh;
+    #phase {
+      font-size: 2em;
+      margin-bottom: 20px;
     }
-    .controls {
-      margin: 20px 0;
-    }
-    button, input {
-      padding: 10px;
-      margin: 5px;
-      font-size: 1em;
-      border-radius: 5px;
-      cursor: pointer;
+    #timer {
+      font-size: 3em;
+      margin-bottom: 20px;
     }
     button {
+      padding: 10px 20px;
+      font-size: 1.2em;
+      cursor: pointer;
       background-color: #4CAF50;
       color: white;
       border: none;
+      border-radius: 5px;
     }
     button:hover {
       background-color: #45a049;
@@ -43,48 +39,30 @@
   </style>
 </head>
 <body>
-  <div class="controls">
-    <input type="color" id="colorPicker" value="#4CAF50">
-    <button onclick="clearCanvas()">Clear</button>
-    <button onclick="downloadArtwork()">Download</button>
-    <select id="templateSelect" onchange="loadTemplate()">
-      <option value="mandala">Mandala</option>
-      <option value="flower">Flower</option>
-    </select>
-  </div>
-  <canvas id="canvas" width="300" height="300"></canvas>
+  <div id="phase">Press Start</div>
+  <div id="timer">0</div>
+  <button id="startStop">Start</button>
 
   <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const colorPicker = document.getElementById('colorPicker');
-    let isDrawing = false;
+    const phases = [
+      { name: 'Inhale', duration: 4, vibration: [200, 100, 200] }, // Vibrate pattern: 200ms on, 100ms off, 200ms on
+      { name: 'Hold', duration: 7, vibration: [200] },
+      { name: 'Exhale', duration: 8, vibration: [400] }
+    ];
+    let currentPhase = 0;
+    let timeLeft = 0;
+    let isRunning = false;
+    let intervalId = null;
 
-    // Load initial template (simple mandala-like circle for demo)
-    function loadTemplate() {
-      const template = document.getElementById('templateSelect').value;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = '#333';
-      ctx.lineWidth = 2;
-      if (template === 'mandala') {
-        // Draw simple mandala (concentric circles)
-        for (let r = 50; r <= 120; r += 20) {
-          ctx.beginPath();
-          ctx.arc(150, 150, r, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-      } else if (template === 'flower') {
-        // Draw simple flower (petals)
-        for (let i = 0; i < 8; i++) {
-          ctx.beginPath();
-          ctx.ellipse(150, 150, 20, 80, (Math.PI / 4) * i, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-      }
-      vibrate([200]); // Vibrate to confirm template load
+    const phaseDisplay = document.getElementById('phase');
+    const timerDisplay = document.getElementById('timer');
+    const startStopButton = document.getElementById('startStop');
+
+    function updateDisplay() {
+      phaseDisplay.textContent = phases[currentPhase].name;
+      timerDisplay.textContent = timeLeft;
     }
 
-    // Vibration function (same as your 4-7-8 timer)
     function vibrate(pattern) {
       if (navigator.vibrate) {
         navigator.vibrate(pattern);
@@ -93,45 +71,48 @@
       }
     }
 
-    // Drawing logic
-    canvas.addEventListener('mousedown', (e) => { isDrawing = true; draw(e); });
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', () => { isDrawing = false; ctx.beginPath(); });
-    canvas.addEventListener('touchstart', (e) => { isDrawing = true; draw(e); });
-    canvas.addEventListener('touchmove', draw);
-    canvas.addEventListener('touchend', () => { isDrawing = false; ctx.beginPath(); });
+    function startTimer() {
+      if (!isRunning) {
+        isRunning = true;
+        startStopButton.textContent = 'Stop';
+        timeLeft = phases[currentPhase].duration;
+        updateDisplay();
+        vibrate(phases[currentPhase].vibration);
 
-    function draw(e) {
-      if (!isDrawing) return;
-      e.preventDefault();
-      const rect = canvas.getBoundingClientRect();
-      const x = (e.clientX || e.touches[0].clientX) - rect.left;
-      const y = (e.clientY || e.touches[0].clientY) - rect.top;
-      ctx.fillStyle = colorPicker.value;
-      ctx.beginPath();
-      ctx.arc(x, y, 5, 0, Math.PI * 2);
-      ctx.fill();
-      vibrate([100]); // Short vibration on draw
+        intervalId = setInterval(() => {
+          timeLeft--;
+          updateDisplay();
+          if (timeLeft <= 0) {
+            currentPhase = (currentPhase + 1) % phases.length;
+            timeLeft = phases[currentPhase].duration;
+            vibrate(phases[currentPhase].vibration);
+            updateDisplay();
+          }
+        }, 1000);
+      }
     }
 
-    // Clear canvas
-    function clearCanvas() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      loadTemplate();
-      vibrate([200, 100, 200]);
+    function stopTimer() {
+      if (isRunning) {
+        isRunning = false;
+        startStopButton.textContent = 'Start';
+        clearInterval(intervalId);
+        currentPhase = 0;
+        timeLeft = phases[currentPhase].duration;
+        updateDisplay();
+      }
     }
 
-    // Download artwork
-    function downloadArtwork() {
-      const link = document.createElement('a');
-      link.download = 'mindful-coloring.png';
-      link.href = canvas.toDataURL();
-      link.click();
-      vibrate([400]);
-    }
+    startStopButton.addEventListener('click', () => {
+      if (isRunning) {
+        stopTimer();
+      } else {
+        startTimer();
+      }
+    });
 
-    // Initialize
-    loadTemplate();
+    // Initialize display
+    updateDisplay();
   </script>
 </body>
 </html>
